@@ -249,4 +249,4 @@ Action: Build the software
     all the requirements provided in the Context section, so you may need to add or remove code to meet the full set of
     requirements specified.
 
-    Embed: src/code_review2/main.py
+    Embed: src/code_review2/code-review2.py
