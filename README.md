@@ -18,6 +18,11 @@ code-review2 is a Python-based command-line application that helps developers ge
 
 The application requires Python 3 and the m6rclib package. Ensure both are installed before using the tool.
 
+Install m6rclib:
+```bash
+pip install m6rclib
+```
+
 ## Usage
 
 Basic syntax:
