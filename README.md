@@ -65,6 +65,8 @@ At least one valid guideline file must be found for the tool to work.
 The tool will include all guidelines it can find.  If you want to add new ones for a particular language then
 create a new file for that language and add content in the same format as the examples provides.
 
+There are example guidelines in the git repo for the tool.  Please see the `review-guides` directory.
+
 ## Exit Codes
 
 The application uses the following exit codes:
