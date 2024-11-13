@@ -1,0 +1,252 @@
+Role:
+    You are a world-class python programmer with a flair for building brilliant software
+
+Context: code-review2 application
+    code-review2 is a command line application that is passed a series of files to be reviewed by an AI LLM.
+
+    Context: Tool invocation
+        As a developer, I would like to start my code review tool from the command line, so I can easily
+        configure the behaviour I want.
+
+        Context: Command line tool
+            The tool will be run from the command line with appropriate arguments.
+
+        Context: No config file
+            The tool does not need a configuration file.
+
+        Context: "--output" argument
+            If the user specifies a "-o" or "--output" argument then this defines the file to which the output prompt
+            should be generated.
+
+        Context: "--help" argument
+            If the user specifies a "-h" or "--help" argument then display a help message with all valid arguments,
+            any parameters they may have, and their usage.
+
+            Take care that this may be automatically handled by the command line argument parser.
+
+        Context: "--guideline-path" argument
+            If the user specifies a "-g" or "--guideline-path" argument then use that as part of the search path that is
+            passed to the Metaphor parser.  More than one such argument may be provided, and all of them should be passed
+            to the parser.
+
+            If no option is provided then the default search path is the current working directory.
+
+        Context: "--version" argument
+            If the user specifies a "-v" or "--version" argument then display the application version number (v0.1 to
+            start with).
+
+        Context: default arguments
+            If not specified with an argument flag, all other inputs should be assumed to be input filenames.
+
+        Context: Check all arguments
+            If the tool is invoked with unknown arguments, display correct usage information.
+
+        Context: Check all argument parameters
+            The tool must check that the form of all parameters correctly matches what is expected for each
+            command line argument.
+
+            If the tool is invoked with invalid parameters, display correct usage information.
+
+        Context: Error handling
+            The application should use the following exit codes:
+            - 0: Success
+            - 1: Command line usage error
+            - 2: Data format error (e.g. invalid Metaphor syntax)
+            - 3: Cannot open input file
+            - 4: Cannot create output file
+
+            Error messages should be written to stderr and should include:
+            - A clear description of the error
+            - The filename if relevant
+            - The line number and column if relevant for syntax errors
+
+    Context: Application logic
+        The application should take all of the input files and incorporate them into a string that represents the
+        root of a metaphor file set.
+
+        This root will look like this:
+
+        ```metaphor
+        Role:
+            You are an expert software reviewer, highly skilled in reviewing code written by other engineers.  You are
+            able to provide insightful and useful feedback on how their software might be improved.
+
+        Context: Review guidelines
+            Include: [guide files go here]
+
+        Action: Review code
+            Please review the software described in the files provided here:
+
+            Embed: [review files go here]
+
+            I would like you to summarise how the software works.
+
+            I would also like you to review each file individually and comment on how it might be improved, based on the
+            guidelines I have provided.  When you do this, you should tell me the name of the file you believe may want to
+            be modified, the modification you believe should happen, and which of the guidelines the change would align with.
+            If any change you envisage might conflict with a guideline then please highlight this and the guideline that might
+            be impacted.
+
+            The review guidelines include generic guidance that should be applied to all file types, and guidance that should
+            only be applied to a specific language type.  In some cases the specific guidance may not be relevant to the files
+            you are asked to review, and if that's the case you need not mention it.  If, however, there is no specific
+            guideline file for the language in which a file is written then please note that the file has not been reviewed
+            against a detailed guideline.
+
+            Where useful, I would like you to write new software to show me how any modifications should look.
+        ```
+
+        If you are passed one or more directory names via the `--guideline-path` argument then scan each directory for
+        `*.m6r` files.  In the root string, replace the `Include: [guide files go here]` with one line per m6r file
+        you discover, replacing the "[guide files go here]" with the matching path and filename.  If you do not find
+        any guideline files then exit, reporting an appropriate error.
+
+        In the root string, replace the `Embed: [review files go here]` with one line per input, replacing the
+        "[review files go here]" with the input files provided on the command line.
+
+        You need to pay very close attention to the indentation of the Metaphor code block you have just seen as that
+        needs to be replicated in the output.
+
+        Once you have the string representation of the root of the Metaphor file set you must call the Metaphor parser,
+        passing in the string so that it can be compiled into the AST.
+
+        Context: Metaphor (.m6r) file parsing
+            The metaphor code review files are to be processed using the m6rclib library.  The source code for the
+            library is presented here:
+
+            Embed: ../m6rclib/src/m6rclib/*.py
+
+            Here is some code that will output an output prompt, based on using the m6rclib library:
+
+            ```python
+            def recurse(node, depth, out):
+                """
+                Recursively traverse the MetaphorAST and output formatted sections.
+
+                Args:
+                    node (MetaphorASTNode): The current MetaphorAST node being processed.
+                    depth (integer): The current tree depth.
+                    out (file): The output stream to write to.
+                """
+                if node.node_type != MetaphorASTNodeType.ROOT:
+                    indent = " " * ((depth - 1) * 4)
+                    keyword = ""
+
+                    if node.node_type == MetaphorASTNodeType.TEXT:
+                        out.write(f"{indent}{node.value}\n")
+                        return
+
+                    if node.node_type == MetaphorASTNodeType.ACTION:
+                        keyword = "Action:"
+                    elif node.node_type == MetaphorASTNodeType.CONTEXT:
+                        keyword = "Context:"
+                    elif node.node_type == MetaphorASTNodeType.ROLE:
+                        keyword = "Role:"
+
+                    out.write(f"{indent}{keyword}")
+                    if node.value:
+                        out.write(f" {node.value}")
+
+                    out.write("\n")
+
+                for child in node.children:
+                    recurse(child, depth + 1, out)
+
+
+            output_stream = sys.stdout
+            if output_file:
+                try:
+                    output_stream = open(output_file, 'w', encoding='utf-8')
+                except OSError as e:
+                    print(f"Error: Could not open output file {output_file}: {e}", file=sys.stderr)
+                    return 1
+
+            metaphor_parser = MetaphorParser()
+            try:
+                syntax_tree = metaphor_parser.parse_file(input_file, search_paths)
+            except MetaphorParserError as e:
+                for error in e.errors:
+                    caret = ""
+                    for _ in range(1, error.column):
+                        caret += " "
+
+                    error_message = f"{error.message}: line {error.line}, column {error.column}, " \
+                        f"file {error.filename}\n{caret}|\n{caret}v\n{error.input_text}"
+
+                    print(f"----------------\n{error_message}", file=sys.stderr)
+
+                print("----------------\n", file=sys.stderr)
+                return -1
+
+            recurse(syntax_tree, 0, output_stream)
+
+            if output_file:
+                output_stream.close()
+            ```
+
+    Context: Python implementation and dependencies
+        As an engineer working with the application, I want the application to be easy to use and understand,
+        so I can maintain and enhance it over time.
+
+        Context: Implement in Python 3
+            The application will be written in the latest version of Python 3.
+
+        Context: Indentation of code
+            Code must be indented by 4 spaces.
+
+        Context: Use docstrings
+            Use docstrings to describe all modules, classes, and functions.  This should follow PEP 257 guidelines.
+
+        Context: Use type hints
+            Use type hints for function arguments and return values.
+
+        Context: Use comments
+            Use additional comments to describe any complex logic.
+
+        Context: PEP 8 imports
+            The import list in any module should follow PEP 8 guidelines, including the ordering of imports.
+
+        Context: Avoid unnecessary elif and else statements
+            To improve readability, do not use elif or else statements if the preceding statement returns.
+
+            For example, do this:
+
+            ```
+            if condition:
+                return
+
+            next_statement()
+            ```
+            instead of this:
+            ```
+            if condition:
+                return;
+            else:
+                next_statement()
+            ```
+
+        Context: Dependencies
+            Leverage standard library tools before custom solutions, unless specifically instructed.
+
+        Context: Exception handling
+            Use specific exceptions instead of bare except.
+
+Action: Build the software
+#    Please review the requirements provided in the Context section and assess if they are clear and unambiguous.  If
+#    anything is unclear then please suggest potential improvements.  Please suggest edits to the Metaphor context where
+#    these may be appropriate.
+#
+#    Take care to review all the behaviours asked for and do not omit anything.
+    Please review the requirements provided in the Context section and build the software described.  Take care to
+    address all the behaviours asked for and do not omit anything.
+
+    Do not produce any other commentary other than the code.
+
+    If the software should be structured into multiple files then please provide each file separately and identify the
+    name of each one as you produce it.
+
+    An earlier version of the application is provided here.  Please use this as a template.  This version may not meet
+    all the requirements provided in the Context section, so you may need to add or remove code to meet the full set of
+    requirements specified.
+
+    Embed: src/code_review2/main.py

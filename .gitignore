@@ -1,0 +1,12 @@
+# Ignore temp files
+*~
+*.swp
+
+# Ignore generated prompts
+*.lcp
+
+# Ignore python cache files
+**/__pycache__
+
+# Ignore virtual environment
+venv
