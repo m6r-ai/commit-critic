@@ -1,8 +1,8 @@
 Role:
     You are a world-class python programmer with a flair for building brilliant software
 
-Context: code-review2 application
-    code-review2 is a command line application that is passed a series of files to be reviewed by an AI LLM.
+Context: commit-critic application
+    commit-critic is a command line application that is passed a series of files to be reviewed by an AI LLM.
 
     Context: Tool invocation
         As a developer, I would like to start my code review tool from the command line, so I can easily
@@ -24,12 +24,10 @@ Context: code-review2 application
 
             Take care that this may be automatically handled by the command line argument parser.
 
-        Context: "--guideline-path" argument
-            If the user specifies a "-g" or "--guideline-path" argument then use that as part of the search path that is
+        Context: "--guideline-dir" argument
+            If the user specifies a "-g" or "--guideline-dir" argument then use that as part of the search path that is
             passed to the Metaphor parser.  More than one such argument may be provided, and all of them should be passed
             to the parser.
-
-            If no option is provided then the default search path is the current working directory.
 
         Context: "--version" argument
             If the user specifies a "-v" or "--version" argument then display the application version number (v0.1 to
@@ -59,6 +57,12 @@ Context: code-review2 application
             - A clear description of the error
             - The filename if relevant
             - The line number and column if relevant for syntax errors
+
+    Context: Environment variable
+        The environment variable "COMMIT_CRITIC_GUIDELINE_DIR" may contain one or more directories that will be scanned
+        for guideline files, similar to the `--guideline-dir` command line argument, except multiple directories may be
+        specified in the environment variable.  The path handling should match the default behaviour for the operating
+        system on which the application is being run.
 
     Context: Application logic
         The application should take all of the input files and incorporate them into a string that represents the
@@ -96,8 +100,11 @@ Context: code-review2 application
             Where useful, I would like you to write new software to show me how any modifications should look.
         ```
 
-        If you are passed one or more directory names via the `--guideline-path` argument then scan each directory for
-        `*.m6r` files.  In the root string, replace the `Include: [guide files go here]` with one line per m6r file
+        If you are passed one or more directory names via the `--guideline-dir` argument or via the
+        COMMIT_CRITIC_GUIDELINE_DIR environment variable then scan each directory for `*.m6r` files.  If no directories
+        were specified then scan the current working directory for the `*.m6r` files.
+
+        In the root string, replace the `Include: [guide files go here]` with one line per m6r file
         you discover, replacing the "[guide files go here]" with the matching path and filename.  If you do not find
         any guideline files then exit, reporting an appropriate error.
 
@@ -182,4 +189,4 @@ Action: Build the software
     all the requirements provided in the Context section, so you may need to add or remove code to meet the full set of
     requirements specified.
 
-    Embed: src/code_review2/code-review2.py
+    Embed: src/commit_critic/commit_critic.py

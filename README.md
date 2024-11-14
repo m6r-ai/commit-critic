@@ -1,10 +1,10 @@
-# code-review2
+# commit-critic
 
-A command-line tool for AI-assisted code reviews that leverages the Metaphor language format to generate structured review prompts.
+commit-critic is a Python-based command-line application that helps developers get AI-powered code reviews.  It takes your source code files and review guidelines as input, then generates a properly formatted prompt that can be used with AI systems to perform detailed code reviews.
 
-## Overview
+The code reviewing guidelines are described by a series of files written in "Metaphor", a structured natural language format designed to generate structured prompts for LLMs.
 
-code-review2 is a Python-based command-line application that helps developers get AI-powered code reviews. It takes your source code files and review guidelines as input, then generates a properly formatted prompt that can be used with AI systems to perform detailed code reviews.
+While the application is a demonstration of using Metaphor and the m6rclib parser/prompt compiler, commit-critic was itself coded by an AI, based on a metaphor description!
 
 ## Features
 
@@ -27,7 +27,7 @@ pip install m6rclib
 
 Basic syntax:
 ```bash
-code-review2.py [options] file1 [file2 ...]
+commit-critic.py [options] file1 [file2 ...]
 ```
 
 ### Command Line Options
@@ -35,23 +35,27 @@ code-review2.py [options] file1 [file2 ...]
 - `-h, --help`: Show help message and exit
 - `-v, --version`: Show program's version number and exit
 - `-o OUTPUT, --output OUTPUT`: Specify output file (defaults to stdout)
-- `-g PATH, --guideline-path PATH`: Add a directory to search for .m6r files (defaults to current directory)
+- `-g PATH, --guideline-path PATH`: Add a directory to search for .m6r review guideline files (defaults to current directory)
+
+### Environment Variable
+
+The environment variable `COMMIT_CRITIC_GUIDELINE_DIR` can also be used to specify the directory, or directories, to search for .m6r review guidelines files.
 
 ### Examples
 
-Review a single file using guidelines in the current directory:
+Review a single file using guidelines in the current directory (or the `COMMIT_CRITIC_GUIDELINE_DIR):
 ```bash
-code-review2.py src/myfile.py
+commit-critic.py src/myfile.py
 ```
 
 Review multiple files and save the prompt to a file:
 ```bash
-code-review2.py -o review-prompt.txt src/file1.py src/file2.py
+commit-critic.py -o review-prompt.txt src/file1.py src/file2.py
 ```
 
 Use guidelines from multiple directories:
 ```bash
-code-review2.py -g ./guidelines -g ./custom-guidelines src/myfile.py
+commit-critic.py -g ./guidelines -g ./custom-guidelines src/myfile.py
 ```
 
 ## Review Guidelines
@@ -59,6 +63,7 @@ code-review2.py -g ./guidelines -g ./custom-guidelines src/myfile.py
 The tool searches for Metaphor guideline files (*.m6r) in:
 1. The current working directory (default)
 2. Any directories specified with the `-g` option
+3. Any directories specified with the `COMMIT_CRITIC_GUIDELINE_DIR` environment variable
 
 At least one valid guideline file must be found for the tool to work.
 

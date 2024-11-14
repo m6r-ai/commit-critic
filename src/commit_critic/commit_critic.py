@@ -15,9 +15,9 @@
 # limitations under the License.
 
 """
-code-review2 - A command line tool for AI-assisted code reviews.
+commit-critic - A command line tool for AI-assisted code reviews.
 
-This module provides the main entry point for the code-review2 application,
+This module provides the main entry point for the commit-critic application,
 which processes source files for AI-based code review using the Metaphor
 language format.
 
@@ -32,7 +32,8 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, NoReturn
+from typing import List, Optional
+
 
 from m6rclib import (
     MetaphorASTNode,
@@ -45,7 +46,14 @@ from m6rclib import (
 
 @dataclass
 class ReviewConfiguration:
-    """Configuration settings for the review generator."""
+    """Configuration settings for the review generator.
+
+    Attributes:
+        output_file: Optional file path for output
+        guideline_paths: List of paths to search for guidelines
+        input_files: List of input files to review
+        version: Version string of the application
+    """
     output_file: Optional[str]
     guideline_paths: List[str]
     input_files: List[str]
@@ -65,6 +73,18 @@ class MetaphorReviewGenerator:
         self.guidelines: List[str] = []
         self.parser = MetaphorParser()
 
+    def _get_env_guideline_paths(self) -> List[str]:
+        """Get guideline paths from environment variable.
+
+        Returns:
+            List of paths from COMMIT_CRITIC_GUIDELINE_DIR environment variable
+        """
+        env_paths = os.getenv("COMMIT_CRITIC_GUIDELINE_DIR", "")
+        if not env_paths:
+            return []
+
+        return [p.strip() for p in env_paths.split(os.pathsep) if p.strip()]
+
     def find_guideline_files(self, paths: Optional[List[str]]) -> List[str]:
         """Find all .m6r files in the specified paths.
 
@@ -77,27 +97,42 @@ class MetaphorReviewGenerator:
         Raises:
             SystemExit: If no guideline files are found or on permission errors
         """
-        if not paths:
-            paths = ['.']
+        search_paths = []
+
+        # Add environment variable paths
+        env_paths = self._get_env_guideline_paths()
+        if env_paths:
+            search_paths.extend(env_paths)
+
+        # Add command line paths if specified
+        if paths:
+            search_paths.extend(paths)
+
+        # Use current directory if no paths specified
+        if not search_paths:
+            search_paths = ['.']
 
         guidelines = []
-        try:
-            for path in paths:
+        for path in search_paths:
+            try:
                 path_obj = Path(path)
                 if not path_obj.exists():
                     sys.stderr.write(f"Warning: Path does not exist: {path}\n")
                     continue
+
                 if not path_obj.is_dir():
                     sys.stderr.write(f"Warning: Path is not a directory: {path}\n")
                     continue
+
                 guidelines.extend(path_obj.glob('*.m6r'))
-        except PermissionError as e:
-            sys.stderr.write(f"Error: Permission denied accessing path {path}: {e}\n")
-            sys.exit(2)
+
+            except PermissionError as e:
+                sys.stderr.write(f"Error: Permission denied accessing path {path}: {e}\n")
+                sys.exit(2)
 
         if not guidelines:
             sys.stderr.write(
-                f"Error: No .m6r files found in search paths: {', '.join(paths)}\n"
+                f"Error: No .m6r files found in search paths: {', '.join(search_paths)}\n"
             )
             sys.exit(2)
 
@@ -117,6 +152,7 @@ class MetaphorReviewGenerator:
             if not path.is_file():
                 sys.stderr.write(f"Error: Cannot open input file: {file}\n")
                 sys.exit(3)
+
             if not os.access(path, os.R_OK):
                 sys.stderr.write(f"Error: No read permission for file: {file}\n")
                 sys.exit(3)
@@ -223,10 +259,11 @@ def parse_arguments() -> ReviewConfiguration:
         type=str
     )
     parser.add_argument(
-        '-g', '--guideline-path',
+        '-g', '--guideline-dir',
         help='Path to search for Metaphor guideline files',
         action='append',
-        type=str
+        type=str,
+        dest='guideline_paths'
     )
     parser.add_argument(
         '-v', '--version',
@@ -243,7 +280,7 @@ def parse_arguments() -> ReviewConfiguration:
     args = parser.parse_args()
     return ReviewConfiguration(
         output_file=args.output,
-        guideline_paths=args.guideline_path or ["."],
+        guideline_paths=args.guideline_paths,
         input_files=args.files
     )
 
