@@ -25,7 +25,7 @@ pip install m6rclib
 
 To install the `commit-critic` command:
 ```bash
-pip install .`
+pip install .
 ```
 
 ## Usage
