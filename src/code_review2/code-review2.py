@@ -49,7 +49,7 @@ class ReviewConfiguration:
     output_file: Optional[str]
     guideline_paths: List[str]
     input_files: List[str]
-    version: str = "v0.2"
+    version: str = "v0.1"
 
 
 class MetaphorReviewGenerator:
@@ -232,7 +232,7 @@ def parse_arguments() -> ReviewConfiguration:
         '-v', '--version',
         help='Display version information',
         action='version',
-        version='v0.2'
+        version='v0.1'
     )
     parser.add_argument(
         'files',
