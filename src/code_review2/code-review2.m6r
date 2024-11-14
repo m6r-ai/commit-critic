@@ -108,81 +108,14 @@ Context: code-review2 application
         needs to be replicated in the output.
 
         Once you have the string representation of the root of the Metaphor file set you must call the Metaphor parser,
-        passing in the string so that it can be compiled into the AST.
+        passing in the string so that it can be compiled into the AST.  There are format functions in the m6rclib
+        package that will handle generation of an output prompt and to output exceptions in the event of parser failures.
 
         Context: Metaphor (.m6r) file parsing
             The metaphor code review files are to be processed using the m6rclib library.  The source code for the
             library is presented here:
 
             Embed: ../m6rclib/src/m6rclib/*.py
-
-            Here is some code that will output an output prompt, based on using the m6rclib library:
-
-            ```python
-            def recurse(node, depth, out):
-                """
-                Recursively traverse the MetaphorAST and output formatted sections.
-
-                Args:
-                    node (MetaphorASTNode): The current MetaphorAST node being processed.
-                    depth (integer): The current tree depth.
-                    out (file): The output stream to write to.
-                """
-                if node.node_type != MetaphorASTNodeType.ROOT:
-                    indent = " " * ((depth - 1) * 4)
-                    keyword = ""
-
-                    if node.node_type == MetaphorASTNodeType.TEXT:
-                        out.write(f"{indent}{node.value}\n")
-                        return
-
-                    if node.node_type == MetaphorASTNodeType.ACTION:
-                        keyword = "Action:"
-                    elif node.node_type == MetaphorASTNodeType.CONTEXT:
-                        keyword = "Context:"
-                    elif node.node_type == MetaphorASTNodeType.ROLE:
-                        keyword = "Role:"
-
-                    out.write(f"{indent}{keyword}")
-                    if node.value:
-                        out.write(f" {node.value}")
-
-                    out.write("\n")
-
-                for child in node.children:
-                    recurse(child, depth + 1, out)
-
-
-            output_stream = sys.stdout
-            if output_file:
-                try:
-                    output_stream = open(output_file, 'w', encoding='utf-8')
-                except OSError as e:
-                    print(f"Error: Could not open output file {output_file}: {e}", file=sys.stderr)
-                    return 1
-
-            metaphor_parser = MetaphorParser()
-            try:
-                syntax_tree = metaphor_parser.parse_file(input_file, search_paths)
-            except MetaphorParserError as e:
-                for error in e.errors:
-                    caret = ""
-                    for _ in range(1, error.column):
-                        caret += " "
-
-                    error_message = f"{error.message}: line {error.line}, column {error.column}, " \
-                        f"file {error.filename}\n{caret}|\n{caret}v\n{error.input_text}"
-
-                    print(f"----------------\n{error_message}", file=sys.stderr)
-
-                print("----------------\n", file=sys.stderr)
-                return -1
-
-            recurse(syntax_tree, 0, output_stream)
-
-            if output_file:
-                output_stream.close()
-            ```
 
     Context: Python implementation and dependencies
         As an engineer working with the application, I want the application to be easy to use and understand,
