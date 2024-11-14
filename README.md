@@ -23,11 +23,16 @@ Install m6rclib:
 pip install m6rclib
 ```
 
+To install the `commit-critic` command:
+```bash
+pip install .`
+```
+
 ## Usage
 
 Basic syntax:
 ```bash
-commit-critic.py [options] file1 [file2 ...]
+commit-critic [options] file1 [file2 ...]
 ```
 
 ### Command Line Options
@@ -45,17 +50,17 @@ The environment variable `COMMIT_CRITIC_GUIDELINE_DIR` can also be used to speci
 
 Review a single file using guidelines in the current directory (or the `COMMIT_CRITIC_GUIDELINE_DIR):
 ```bash
-commit-critic.py src/myfile.py
+commit-critic src/myfile.py
 ```
 
 Review multiple files and save the prompt to a file:
 ```bash
-commit-critic.py -o review-prompt.txt src/file1.py src/file2.py
+commit-critic -o review-prompt.txt src/file1.py src/file2.py
 ```
 
 Use guidelines from multiple directories:
 ```bash
-commit-critic.py -g ./guidelines -g ./custom-guidelines src/myfile.py
+commit-critic -g ./guidelines -g ./custom-guidelines src/myfile.py
 ```
 
 ## Review Guidelines

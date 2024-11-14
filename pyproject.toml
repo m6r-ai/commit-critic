@@ -23,6 +23,12 @@ dependencies = [
 [project.scripts]
 commit-critic = "commit_critic.commit_critic:main"
 
+[tool.hatch.build]
+packages = ["src/commit_critic"]
+
+[tool.hatch.build.targets.wheel]
+only-include = ["src/commit_critic"]
+
 [project.urls]
 Homepage = "https://github.com/m6r-ai/commit-critic"
 Issues = "https://github.com/m6r-ai/commit-critic/issues"
