@@ -24,41 +24,10 @@ from m6rclib import (
     MetaphorParser,
     MetaphorParserError,
     MetaphorASTNode,
-    MetaphorASTNodeType
+    MetaphorASTNodeType,
+    format_ast,
+    format_errors
 )
-
-
-def recurse_ast(node: MetaphorASTNode, depth: int, out: TextIO) -> None:
-    """
-    Recursively traverse the MetaphorAST and output formatted sections.
-
-    Args:
-        node (MetaphorASTNode): The current MetaphorAST node being processed
-        depth (int): The current tree depth
-        out (TextIO): The output stream to write to
-    """
-    if node.node_type != MetaphorASTNodeType.ROOT:
-        indent = " " * ((depth - 1) * 4)
-        if node.node_type == MetaphorASTNodeType.TEXT:
-            out.write(f"{indent}{node.value}\n")
-            return
-
-        # Map node types to keywords
-        node_type_map = {
-            MetaphorASTNodeType.ACTION: "Action:",
-            MetaphorASTNodeType.CONTEXT: "Context:",
-            MetaphorASTNodeType.ROLE: "Role:"
-        }
-        keyword = node_type_map.get(node.node_type, "")
-
-        if keyword:
-            out.write(f"{indent}{keyword}")
-            if node.value:
-                out.write(f" {node.value}")
-            out.write("\n")
-
-    for child in node.children:
-        recurse_ast(child, depth + 1, out)
 
 
 def find_guideline_files(paths: List[str]) -> Set[str]:
@@ -115,14 +84,13 @@ Context: Review guidelines"""
         metaphor_root += f"\n    Include: {guideline}"
 
     metaphor_root += """\nAction: Review code
-    Please review the software described in the files provided here:
-"""
+    Please review the software described in the files provided here:"""
 
     # Add the embedded files with correct indentation
     for file in files:
-        metaphor_root += f"    Embed: {file}\n"
+        metaphor_root += f"\n    Embed: {file}"
 
-    metaphor_root += """    I would like you to summarise how the software works.
+    metaphor_root += """\n    I would like you to summarise how the software works.
     I would also like you to review each file individually and comment on how it might be improved, based on the
     guidelines I have provided.  When you do this, you should tell me the name of the file you believe may want to
     be modified, the modification you believe should happen, and which of the guidelines the change would align with.
@@ -139,19 +107,12 @@ Context: Review guidelines"""
     try:
         metaphor_parser = MetaphorParser()
         syntax_tree = metaphor_parser.parse(metaphor_root, "<root>", search_paths)
-    except MetaphorParserError as e:
-        for error in e.errors:
-            caret = " " * (error.column - 1)
-            error_message = (
-                f"{error.message}: line {error.line}, column {error.column}, "
-                f"file {error.filename}\n{caret}|\n{caret}v\n{error.input_text}"
-            )
-            print(f"----------------\n{error_message}", file=sys.stderr)
-        print("----------------\n", file=sys.stderr)
-        return 2
+        output_stream.write(format_ast(syntax_tree))
+        return 0
 
-    recurse_ast(syntax_tree, 0, output_stream)
-    return 0
+    except MetaphorParserError as e:
+        print(format_errors(e.errors), file=sys.stderr)
+        return 2
 
 
 def process_files(args: argparse.Namespace) -> int:
