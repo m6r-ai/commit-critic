@@ -1,5 +1,19 @@
 #!/usr/bin/env python3
 
+# Copyright 2024 M6R Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 code-review2 - A command line tool for AI-assisted code reviews.
 
@@ -14,83 +28,121 @@ language format for structuring the review request.
 """
 
 import argparse
-import glob
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, TextIO, Optional, Set
+from typing import List, Optional, NoReturn
 
 from m6rclib import (
+    MetaphorASTNode,
     MetaphorParser,
     MetaphorParserError,
-    MetaphorASTNode,
-    MetaphorASTNodeType,
     format_ast,
-    format_errors
+    format_errors,
 )
 
 
-def find_guideline_files(paths: List[str]) -> Set[str]:
-    """
-    Find all .m6r files in the given paths.
-
-    Args:
-        paths (List[str]): List of paths to search
-
-    Returns:
-        Set[str]: Set of found .m6r files
-    """
-    guideline_files = set()
-
-    for path in paths:
-        if not os.path.exists(path):
-            continue
-
-        # Search for .m6r files in the directory
-        pattern = os.path.join(path, "*.m6r")
-        guideline_files.update(glob.glob(pattern))
-
-    return guideline_files
+@dataclass
+class ReviewConfiguration:
+    """Configuration settings for the review generator."""
+    output_file: Optional[str]
+    guideline_paths: List[str]
+    input_files: List[str]
+    version: str = "v0.2"
 
 
-def create_prompt(files: List[str], search_paths: List[str], output_stream: TextIO) -> int:
-    """
-    Create the Metaphor prompt structure that will be sent to the AI for review.
+class MetaphorReviewGenerator:
+    """Handles the generation of code reviews using Metaphor templates."""
 
-    Args:
-        files (List[str]): List of files to be reviewed
-        search_paths (List[str]): List of paths to search for included files
-        output_stream (TextIO): Where to write the output
+    def __init__(self, config: ReviewConfiguration):
+        """Initialize the review generator.
 
-    Returns:
-        int: Exit code (0 for success, non-zero for error)
-    """
-    # First check if we can find any guideline files
-    search_paths = search_paths if search_paths else [os.getcwd()]
-    guideline_files = find_guideline_files(search_paths)
+        Args:
+            config: Configuration settings for the review
+        """
+        self.config = config
+        self.guidelines: List[str] = []
+        self.parser = MetaphorParser()
 
-    if not guideline_files:
-        print("Error: No .m6r guideline files found in the search path", file=sys.stderr)
-        return 2
+    def find_guideline_files(self, paths: Optional[List[str]]) -> List[str]:
+        """Find all .m6r files in the specified paths.
 
-    # Create the root metaphor structure
-    metaphor_root = """Role:
+        Args:
+            paths: List of paths to search, or None to use current directory
+
+        Returns:
+            List of discovered .m6r files
+
+        Raises:
+            SystemExit: If no guideline files are found or on permission errors
+        """
+        if not paths:
+            paths = ['.']
+
+        guidelines = []
+        try:
+            for path in paths:
+                path_obj = Path(path)
+                if not path_obj.exists():
+                    sys.stderr.write(f"Warning: Path does not exist: {path}\n")
+                    continue
+                if not path_obj.is_dir():
+                    sys.stderr.write(f"Warning: Path is not a directory: {path}\n")
+                    continue
+                guidelines.extend(path_obj.glob('*.m6r'))
+        except PermissionError as e:
+            sys.stderr.write(f"Error: Permission denied accessing path {path}: {e}\n")
+            sys.exit(2)
+
+        if not guidelines:
+            sys.stderr.write(
+                f"Error: No .m6r files found in search paths: {', '.join(paths)}\n"
+            )
+            sys.exit(2)
+
+        return [str(p) for p in guidelines]
+
+    def validate_files(self, files: List[str]) -> None:
+        """Validate that all input files exist and are readable.
+
+        Args:
+            files: List of files to validate
+
+        Raises:
+            SystemExit: If any file cannot be accessed
+        """
+        for file in files:
+            path = Path(file)
+            if not path.is_file():
+                sys.stderr.write(f"Error: Cannot open input file: {file}\n")
+                sys.exit(3)
+            if not os.access(path, os.R_OK):
+                sys.stderr.write(f"Error: No read permission for file: {file}\n")
+                sys.exit(3)
+
+    def create_metaphor_content(self, guidelines: List[str], files: List[str]) -> str:
+        """Create the Metaphor content string.
+
+        Args:
+            guidelines: List of guideline files to include
+            files: List of files to review
+
+        Returns:
+            String containing the complete Metaphor content
+        """
+        include_lines = '\n'.join(f'    Include: {g}' for g in guidelines)
+        embed_lines = '\n'.join(f'    Embed: {f}' for f in files)
+
+        return f"""Role:
     You are an expert software reviewer, highly skilled in reviewing code written by other engineers.  You are
     able to provide insightful and useful feedback on how their software might be improved.
-Context: Review guidelines"""
-
-    # Add the Include directives for each guideline file found
-    for guideline in guideline_files:
-        metaphor_root += f"\n    Include: {guideline}"
-
-    metaphor_root += """\nAction: Review code
-    Please review the software described in the files provided here:"""
-
-    # Add the embedded files with correct indentation
-    for file in files:
-        metaphor_root += f"\n    Embed: {file}"
-
-    metaphor_root += """\n    I would like you to summarise how the software works.
+Context: Review guidelines
+{include_lines}
+Action: Review code
+    Please review the software described in the files provided here:
+{embed_lines}
+    I would like you to summarise how the software works.
     I would also like you to review each file individually and comment on how it might be improved, based on the
     guidelines I have provided.  When you do this, you should tell me the name of the file you believe may want to
     be modified, the modification you believe should happen, and which of the guidelines the change would align with.
@@ -103,101 +155,106 @@ Context: Review guidelines"""
     against a detailed guideline.
     Where useful, I would like you to write new software to show me how any modifications should look."""
 
-    # Parse the metaphor content
-    try:
-        metaphor_parser = MetaphorParser()
-        syntax_tree = metaphor_parser.parse(metaphor_root, "<root>", search_paths)
-        output_stream.write(format_ast(syntax_tree))
-        return 0
+    def write_output(self, content: str, output_file: Optional[str]) -> None:
+        """Write content to the specified output file or stdout.
 
-    except MetaphorParserError as e:
-        print(format_errors(e.errors), file=sys.stderr)
-        return 2
+        Args:
+            content: Content to write
+            output_file: Optional output file path
+
+        Raises:
+            SystemExit: If output file cannot be written
+        """
+        if output_file:
+            try:
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(content)
+            except OSError as e:
+                sys.stderr.write(f"Error: Cannot create output file {output_file}: {e}\n")
+                sys.exit(4)
+            return
+
+        sys.stdout.write(content)
+
+    def validate_and_prepare(self) -> None:
+        """Validate input files and prepare guidelines.
+
+        Raises:
+            SystemExit: If validation fails
+        """
+        if not self.config.input_files:
+            sys.stderr.write("Error: No input files specified\n")
+            sys.exit(1)
+
+        self.validate_files(self.config.input_files)
+        self.guidelines = self.find_guideline_files(self.config.guideline_paths)
+
+    def generate_review(self) -> None:
+        """Generate the code review.
+
+        Raises:
+            SystemExit: If review generation fails
+        """
+        content = self.create_metaphor_content(self.guidelines, self.config.input_files)
+        try:
+            ast: MetaphorASTNode = self.parser.parse(
+                content,
+                "<generated>",
+                self.config.guideline_paths or ["."]
+            )
+            self.write_output(format_ast(ast), self.config.output_file)
+        except MetaphorParserError as e:
+            sys.stderr.write(format_errors(e.errors))
+            sys.exit(2)
 
 
-def process_files(args: argparse.Namespace) -> int:
-    """
-    Process input files and generate the review prompt.
-
-    Args:
-        args (argparse.Namespace): Parsed command line arguments
+def parse_arguments() -> ReviewConfiguration:
+    """Parse and validate command line arguments.
 
     Returns:
-        int: Exit code (0 for success, non-zero for error)
-    """
-    # Verify all input files exist
-    for file in args.files:
-        if not Path(file).is_file():
-            print(f"Error: Input file '{file}' does not exist", file=sys.stderr)
-            return 3
-
-    # Handle output file
-    output_stream: Optional[TextIO] = None
-    try:
-        output_stream = (
-            open(args.output, 'w', encoding='utf-8')
-            if args.output
-            else sys.stdout
-        )
-        result = create_prompt(args.files, args.guideline_path, output_stream)
-
-        # Only close if we opened a file
-        if args.output:
-            output_stream.close()
-
-        return result
-
-    except OSError as e:
-        print(f"Error: Could not open output file {args.output}: {e}", file=sys.stderr)
-        return 4
-
-
-def main() -> int:
-    """
-    Main entry point for the code-review2 application.
-
-    Parses command line arguments and orchestrates the review prompt generation process.
-
-    Returns:
-        int: Exit code (0 for success, non-zero for error)
-        - 0: Success
-        - 1: Command line usage error
-        - 2: Data format error (e.g. invalid Metaphor syntax)
-        - 3: Cannot open input file
-        - 4: Cannot create output file
+        ReviewConfiguration containing the parsed arguments
     """
     parser = argparse.ArgumentParser(
-        description='Generate an AI prompt for code review from input files'
-    )
-    parser.add_argument(
-        '-v', '--version',
-        action='version',
-        version='%(prog)s v0.1'
+        description='Generate AI-assisted code reviews using Metaphor templates'
     )
     parser.add_argument(
         '-o', '--output',
-        help='output file (defaults to stdout)',
+        help='Output file for the generated prompt',
         type=str
     )
     parser.add_argument(
         '-g', '--guideline-path',
+        help='Path to search for Metaphor guideline files',
         action='append',
-        help='add a directory to search for .m6r files (defaults to current directory)',
         type=str
     )
     parser.add_argument(
+        '-v', '--version',
+        help='Display version information',
+        action='version',
+        version='v0.2'
+    )
+    parser.add_argument(
         'files',
-        nargs='+',
-        help='input files to process'
+        help='Files to review',
+        nargs='*'
     )
 
-    try:
-        args = parser.parse_args()
-        return process_files(args)
-    except argparse.ArgumentError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
+    args = parser.parse_args()
+    return ReviewConfiguration(
+        output_file=args.output,
+        guideline_paths=args.guideline_path or ["."],
+        input_files=args.files
+    )
+
+
+def main() -> None:
+    """Main entry point for the application."""
+    config = parse_arguments()
+    generator = MetaphorReviewGenerator(config)
+    generator.validate_and_prepare()
+    generator.generate_review()
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    main()
