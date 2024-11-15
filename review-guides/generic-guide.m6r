@@ -42,7 +42,7 @@ Context: Generic code review guidelines
         - Detect and handle all exception or failure conditions.
         - Provide meaningful error messages.
         - Log errors appropriately.
-        - Handle resources properly (use context managers).
+        - Handle resources properly.
         - Fail fast and explicitly.
         - Return early pattern for guard clauses.
         - Ensure error messages do not expose sensitive information.

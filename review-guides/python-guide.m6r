@@ -22,6 +22,7 @@ Context: Python code review guidelines
 
     Context: Error handling
         - Use specific exceptions instead of bare except.
+        - Use context managers where possible to simplify resource management.
 
     Context: Performance considerations
         The software should:
