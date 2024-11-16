@@ -2,7 +2,7 @@
 
 commit-critic is an extensible Python-based command-line application that helps developers get AI-powered code reviews.
 It takes your source code files and review guidelines as input, then generates a detailed prompt that can be used with
-AI systems to perform detailed code reviews.
+you favourite AI to perform detailed code reviews.
 
 The code reviewing guidelines are described by a series of files written in "Metaphor", a structured natural language
 format designed to generate structured prompts for LLMs.
