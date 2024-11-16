@@ -17,17 +17,19 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "m6rclib>=0.1.0"
+    "m6rclib>=0.3.0"
 ]
 
 [project.scripts]
 commit-critic = "commit_critic.commit_critic:main"
 
 [tool.hatch.build]
-packages = ["src/commit_critic"]
+include = [
+    "src/commit_critic/**/*.py",
+]
 
 [tool.hatch.build.targets.wheel]
-only-include = ["src/commit_critic"]
+packages = ["src/commit_critic"]
 
 [project.urls]
 Homepage = "https://github.com/m6r-ai/commit-critic"

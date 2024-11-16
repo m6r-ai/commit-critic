@@ -8,5 +8,8 @@
 # Ignore python cache files
 **/__pycache__
 
+# Ignore build files
+dist
+
 # Ignore virtual environment
 venv
