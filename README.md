@@ -1,10 +1,17 @@
 # commit-critic
 
-commit-critic is a Python-based command-line application that helps developers get AI-powered code reviews.  It takes your source code files and review guidelines as input, then generates a properly formatted prompt that can be used with AI systems to perform detailed code reviews.
+commit-critic is an extensible Python-based command-line application that helps developers get AI-powered code reviews.
+It takes your source code files and review guidelines as input, then generates a detailed prompt that can be used with
+AI systems to perform detailed code reviews.
 
-The code reviewing guidelines are described by a series of files written in "Metaphor", a structured natural language format designed to generate structured prompts for LLMs.
+The code reviewing guidelines are described by a series of files written in "Metaphor", a structured natural language
+format designed to generate structured prompts for LLMs.
 
-While the application is a demonstration of using Metaphor and the m6rclib parser/prompt compiler, commit-critic was itself coded by an AI, based on a metaphor description!
+While the application is a demonstration of using Metaphor and the m6rclib parser/prompt compiler, commit-critic
+was itself coded by an AI, based on a metaphor description.
+
+For more detail you can read how this was designed and built at
+[https://m6r.ai/blog/000005-commit-critic](https://m6r.ai/blog/000005-commit-critic).
 
 ## Features
 
